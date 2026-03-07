@@ -24,7 +24,7 @@ class UsageActiveRequestsMixin:
 
         通过 RequestCandidate 表判断哪些请求实际已成功完成：
         1. status='success' 且 stream_completed=True（正常完成）
-        2. status='streaming' 且 status_code=200（Provider 已返回成功，流因重启中断）
+        2. status='streaming'（Provider 已返回成功响应头，流因重启中断）
         """
         if not request_ids:
             return set()
@@ -35,15 +35,13 @@ class UsageActiveRequestsMixin:
             db.query(
                 RequestCandidate.request_id,
                 RequestCandidate.status,
-                RequestCandidate.status_code,
                 RequestCandidate.extra_data,
             )
             .filter(
                 RequestCandidate.request_id.in_(request_ids),
                 or_(
                     RequestCandidate.status == "success",
-                    (RequestCandidate.status == "streaming")
-                    & (RequestCandidate.status_code == 200),
+                    RequestCandidate.status == "streaming",
                 ),
             )
             .all()
@@ -53,7 +51,7 @@ class UsageActiveRequestsMixin:
             extra_data = c.extra_data or {}
             if c.status == "success" and extra_data.get("stream_completed", False):
                 completed.add(c.request_id)
-            elif c.status == "streaming" and c.status_code == 200:
+            elif c.status == "streaming":
                 completed.add(c.request_id)
         return completed
 
@@ -111,7 +109,7 @@ class UsageActiveRequestsMixin:
         清理超时的 pending/streaming 请求
 
         将超过指定时间仍处于 pending 或 streaming 状态的请求标记为 failed 或恢复为 completed。
-        会检查 RequestCandidate 表，如果 Provider 已返回成功（status_code=200），
+        会检查 RequestCandidate 表，如果 Provider 已返回成功响应（status=streaming 或 stream_completed），
         则恢复为 completed 而非标记为 failed，同时同步更新 candidate 状态。
 
         Args:

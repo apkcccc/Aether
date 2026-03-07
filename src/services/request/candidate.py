@@ -114,7 +114,6 @@ class RequestCandidateService:
     def mark_candidate_streaming(
         db: Session,
         candidate_id: str,
-        status_code: int = 200,
         concurrent_requests: int | None = None,
     ) -> None:
         """
@@ -123,18 +122,19 @@ class RequestCandidateService:
         用于流式请求：连接建立成功后，流开始传输时调用。
         此时请求尚未完成，需要等流传输完毕后再调用 mark_candidate_success。
 
+        注意：streaming 阶段不设置 status_code，最终状态码由
+        mark_candidate_success / mark_candidate_failed 在流结束时写入。
+
         Args:
             db: 数据库会话
             candidate_id: 候选ID
-            status_code: HTTP 状态码（通常是 200）
             concurrent_requests: 并发请求数
         """
         candidate = db.query(RequestCandidate).filter(RequestCandidate.id == candidate_id).first()
         if candidate:
             candidate.status = "streaming"
-            candidate.status_code = status_code
             candidate.concurrent_requests = concurrent_requests
-            # streaming 状态不设置 finished_at，因为请求还在进行中
+            # streaming 状态不设置 finished_at 和 status_code，因为请求还在进行中
             db.commit()
 
     @staticmethod

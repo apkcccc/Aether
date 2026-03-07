@@ -197,7 +197,6 @@ class RequestExecutor:
                     RequestCandidateService.mark_candidate_streaming(
                         db=self.db,
                         candidate_id=candidate_id,
-                        status_code=200,
                         concurrent_requests=key_rpm_count,
                     )
                 else:
