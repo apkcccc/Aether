@@ -846,9 +846,13 @@ class AdminListPoolKeysAdapter(AdminApiAdapter):
                     rate_multipliers=rate_multipliers,
                     internal_priority=int(getattr(k, "internal_priority", 50) or 50),
                     rpm_limit=getattr(k, "rpm_limit", None),
-                    cache_ttl_minutes=int(getattr(k, "cache_ttl_minutes", 5) or 5),
-                    max_probe_interval_minutes=int(
-                        getattr(k, "max_probe_interval_minutes", 32) or 32
+                    cache_ttl_minutes=(
+                        v if (v := getattr(k, "cache_ttl_minutes", None)) is not None else 5
+                    ),
+                    max_probe_interval_minutes=(
+                        v
+                        if (v := getattr(k, "max_probe_interval_minutes", None)) is not None
+                        else 32
                     ),
                     note=getattr(k, "note", None),
                     allowed_models=allowed_models,
