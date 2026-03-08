@@ -18,10 +18,10 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import delete, text
+from sqlalchemy import delete, literal_column, text
 
 from src.core.logger import logger
 from src.database import create_session
@@ -393,40 +393,43 @@ class MaintenanceScheduler:
                         check_start_date, datetime.min.time(), tzinfo=timezone.utc
                     )
 
-                    # 获取 StatsDaily 和 StatsDailyModel 中已有数据的日期集合
-                    existing_daily_dates = set()
-                    existing_model_dates = set()
-                    existing_provider_dates = set()
+                    # 单次查询获取三张统计表中已有数据的日期（UNION ALL 合并）
+                    existing_daily_dates: set[date] = set()
+                    existing_model_dates: set[date] = set()
+                    existing_provider_dates: set[date] = set()
 
-                    daily_stats = (
-                        db.query(StatsDaily.date).filter(StatsDaily.date >= check_start_dt).all()
-                    )
-                    for (stat_date,) in daily_stats:
-                        if stat_date.tzinfo is None:
-                            stat_date = stat_date.replace(tzinfo=timezone.utc)
-                        existing_daily_dates.add(stat_date.date())
-
-                    model_stats = (
-                        db.query(StatsDailyModel.date)
+                    q_daily = db.query(
+                        StatsDaily.date.label("dt"),
+                        literal_column("'daily'").label("src"),
+                    ).filter(StatsDaily.date >= check_start_dt)
+                    q_model = (
+                        db.query(
+                            StatsDailyModel.date.label("dt"),
+                            literal_column("'model'").label("src"),
+                        )
                         .filter(StatsDailyModel.date >= check_start_dt)
                         .distinct()
-                        .all()
                     )
-                    for (stat_date,) in model_stats:
-                        if stat_date.tzinfo is None:
-                            stat_date = stat_date.replace(tzinfo=timezone.utc)
-                        existing_model_dates.add(stat_date.date())
-
-                    provider_stats = (
-                        db.query(StatsDailyProvider.date)
+                    q_provider = (
+                        db.query(
+                            StatsDailyProvider.date.label("dt"),
+                            literal_column("'provider'").label("src"),
+                        )
                         .filter(StatsDailyProvider.date >= check_start_dt)
                         .distinct()
-                        .all()
                     )
-                    for (stat_date,) in provider_stats:
+                    combined = q_daily.union_all(q_model).union_all(q_provider).all()
+
+                    for stat_date, src in combined:
                         if stat_date.tzinfo is None:
                             stat_date = stat_date.replace(tzinfo=timezone.utc)
-                        existing_provider_dates.add(stat_date.date())
+                        d = stat_date.date()
+                        if src == "daily":
+                            existing_daily_dates.add(d)
+                        elif src == "model":
+                            existing_model_dates.add(d)
+                        else:
+                            existing_provider_dates.add(d)
 
                     # 找出需要回填的日期
                     all_dates = set()

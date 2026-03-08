@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy.orm import Session
 
 from src.core.crypto import crypto_service
@@ -514,13 +515,12 @@ async def batch_delete_endpoint_keys_response(db: Session, key_ids: list[str]) -
     # 收集受影响的 provider_id
     affected_provider_ids = {key.provider_id for key in keys if key.provider_id}
 
-    # 批量删除，一次提交
+    # 批量 SQL DELETE，一次提交
     success_count = 0
     try:
-        for key in keys:
-            db.delete(key)
+        db.execute(sa_delete(ProviderAPIKey).where(ProviderAPIKey.id.in_(list(found_ids))))
         db.commit()
-        success_count = len(keys)
+        success_count = len(found_ids)
     except Exception as exc:
         db.rollback()
         logger.error("批量删除 Key 提交失败: {}", exc)

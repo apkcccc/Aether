@@ -502,6 +502,7 @@ class UpdateProfileAdapter(AuthenticatedApiAdapter):
 
         user.updated_at = datetime.now(timezone.utc)
         db.commit()
+        context.request.state.tx_committed_by_route = True
         db.refresh(user)
         return {"message": "个人信息更新成功"}
 
@@ -544,6 +545,7 @@ class ChangePasswordAdapter(AuthenticatedApiAdapter):
         user.set_password(request.new_password)
         user.updated_at = datetime.now(timezone.utc)
         db.commit()
+        context.request.state.tx_committed_by_route = True
         action = "修改" if has_password else "设置"
         logger.info(f"用户{action}密码: {user.email}")
         return {"message": f"密码{action}成功"}
@@ -735,6 +737,7 @@ class DeleteMyApiKeyAdapter(AuthenticatedApiAdapter):
         pre_clean_api_key(context.db, api_key.id)
         context.db.delete(api_key)
         context.db.commit()
+        context.request.state.tx_committed_by_route = True
         return {"message": "API密钥已删除"}
 
 
@@ -756,6 +759,7 @@ class ToggleMyApiKeyAdapter(AuthenticatedApiAdapter):
             raise ForbiddenException("该密钥已被管理员锁定，无法修改状态")
         api_key.is_active = not api_key.is_active
         context.db.commit()
+        context.request.state.tx_committed_by_route = True
         context.db.refresh(api_key)
         return {
             "id": api_key.id,
@@ -1068,7 +1072,7 @@ class GetUsageAdapter(AuthenticatedApiAdapter):
                     "input_tokens": r.input_tokens,
                     "output_tokens": r.output_tokens,
                     "total_tokens": r.total_tokens,
-                    "cost": r.total_cost_usd,
+                    "cost": float(r.total_cost_usd or 0),
                     "response_time_ms": r.response_time_ms,
                     "first_byte_time_ms": r.first_byte_time_ms,
                     "is_stream": r.is_stream,
@@ -1482,6 +1486,7 @@ class UpdateApiKeyProvidersAdapter(AuthenticatedApiAdapter):
         )
         api_key.updated_at = datetime.now(timezone.utc)
         db.commit()
+        context.request.state.tx_committed_by_route = True
         logger.debug(f"用户 {user.id} 更新API密钥 {self.api_key_id} 的可用提供商")
         return {"message": "API密钥可用提供商已更新"}
 
@@ -1531,6 +1536,7 @@ class UpdateApiKeyCapabilitiesAdapter(AuthenticatedApiAdapter):
         api_key.force_capabilities = force_capabilities
         api_key.updated_at = datetime.now(timezone.utc)
         db.commit()
+        context.request.state.tx_committed_by_route = True
 
         # 记录审计日志
         audit_service.log_event(
@@ -1662,6 +1668,7 @@ class UpdateModelCapabilitySettingsAdapter(AuthenticatedApiAdapter):
         user.model_capability_settings = settings
         user.updated_at = datetime.now(timezone.utc)
         db.commit()
+        context.request.state.tx_committed_by_route = True
 
         # 清除用户缓存，确保下次读取时获取最新数据
         await UserCacheService.invalidate_user_cache(user.id, user.email)

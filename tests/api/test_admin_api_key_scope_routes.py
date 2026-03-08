@@ -11,13 +11,13 @@ from fastapi.testclient import TestClient
 from src.api.admin.api_keys.routes import (
     AdminGetFullKeyAdapter,
     AdminToggleApiKeyAdapter,
-    router as admin_api_keys_router,
 )
+from src.api.admin.api_keys.routes import router as admin_api_keys_router
 from src.api.admin.users.routes import (
     AdminGetUserKeyFullKeyAdapter,
     AdminToggleUserKeyLockAdapter,
-    router as admin_users_router,
 )
+from src.api.admin.users.routes import router as admin_users_router
 from src.core.exceptions import InvalidRequestException, NotFoundException
 from src.database import get_db
 
@@ -25,6 +25,7 @@ from src.database import get_db
 def _build_context(db: MagicMock) -> SimpleNamespace:
     return SimpleNamespace(
         db=db,
+        request=SimpleNamespace(state=SimpleNamespace()),
         add_audit_metadata=lambda **_: None,
     )
 
@@ -38,10 +39,13 @@ def _build_admin_users_app(db: MagicMock, monkeypatch: pytest.MonkeyPatch) -> Te
     app.include_router(admin_users_router)
     app.dependency_overrides[get_db] = lambda: db
 
-    async def _fake_pipeline_run(*, adapter: object, http_request: object, db: MagicMock, mode: object) -> object:
+    async def _fake_pipeline_run(
+        *, adapter: object, http_request: object, db: MagicMock, mode: object
+    ) -> object:
         _ = http_request, mode
         context = SimpleNamespace(
             db=db,
+            request=SimpleNamespace(state=SimpleNamespace()),
             user=SimpleNamespace(id="admin-1"),
             ensure_json_body=lambda: {},
             add_audit_metadata=lambda **_: None,
@@ -57,10 +61,13 @@ def _build_admin_api_keys_app(db: MagicMock, monkeypatch: pytest.MonkeyPatch) ->
     app.include_router(admin_api_keys_router)
     app.dependency_overrides[get_db] = lambda: db
 
-    async def _fake_pipeline_run(*, adapter: object, http_request: object, db: MagicMock, mode: object) -> object:
+    async def _fake_pipeline_run(
+        *, adapter: object, http_request: object, db: MagicMock, mode: object
+    ) -> object:
         _ = http_request, mode
         context = SimpleNamespace(
             db=db,
+            request=SimpleNamespace(state=SimpleNamespace()),
             user=SimpleNamespace(id="admin-1"),
             ensure_json_body=lambda: {},
             add_audit_metadata=lambda **_: None,
@@ -243,7 +250,9 @@ def test_standalone_list_route_does_not_expose_is_locked(monkeypatch: pytest.Mon
 
     monkeypatch.setattr(
         "src.api.admin.api_keys.routes.WalletService.get_wallet",
-        lambda _db, user_id=None, api_key_id=None, user=None, api_key=None: SimpleNamespace(id="w-1"),
+        lambda _db, user_id=None, api_key_id=None, user=None, api_key=None: SimpleNamespace(
+            id="w-1"
+        ),
     )
     client = _build_admin_api_keys_app(db, monkeypatch)
 

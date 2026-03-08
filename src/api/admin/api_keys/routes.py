@@ -298,6 +298,7 @@ class AdminListStandaloneKeysAdapter(AdminApiAdapter):
                 wallet_initialized = True
         if wallet_initialized:
             db.commit()
+            context.request.state.tx_committed_by_route = True
             for api_key in api_keys:
                 db.refresh(api_key)
 
@@ -390,6 +391,7 @@ class AdminCreateStandaloneKeyAdapter(AdminApiAdapter):
         if wallet is None:
             raise InvalidRequestException("独立密钥钱包初始化失败")
         db.commit()
+        context.request.state.tx_committed_by_route = True
         db.refresh(api_key)
         wallet_summary = WalletService.serialize_wallet_summary(wallet)
 
@@ -533,6 +535,7 @@ class AdminToggleApiKeyAdapter(AdminApiAdapter):
         api_key.is_active = not api_key.is_active
         api_key.updated_at = datetime.now(timezone.utc)
         db.commit()
+        context.request.state.tx_committed_by_route = True
         db.refresh(api_key)
 
         logger.info(
@@ -569,6 +572,7 @@ class AdminDeleteApiKeyAdapter(AdminApiAdapter):
         pre_clean_api_key(db, api_key.id)
         db.delete(api_key)
         db.commit()
+        context.request.state.tx_committed_by_route = True
 
         logger.info(
             f"管理员删除API密钥: Key ID {self.key_id}, 用户 {user.email if user else '未知'}"

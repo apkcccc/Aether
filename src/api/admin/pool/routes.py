@@ -1244,10 +1244,13 @@ class AdminCleanupBannedKeysAdapter(AdminApiAdapter):
             return BatchActionResponse(affected=0, message="未发现已知封号账号")
 
         banned_key_ids = [str(key.id) for key in banned_keys]
-        for key in banned_keys:
-            db.delete(key)
-
         try:
+            db.execute(
+                sa_delete(ProviderAPIKey).where(
+                    ProviderAPIKey.provider_id == pid,
+                    ProviderAPIKey.id.in_(banned_key_ids),
+                )
+            )
             db.commit()
         except Exception as exc:
             db.rollback()

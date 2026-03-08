@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from src.core.logger import logger
 from src.core.validators import EmailValidator, PasswordValidator, UsernameValidator
@@ -481,10 +481,11 @@ class UserService:
         if not all_active_provider_ids:
             return []
 
-        # 查询所有活跃的 Model（关联 GlobalModel）
+        # 查询所有活跃的 Model（关联 GlobalModel，contains_eager 避免循环中懒加载）
         all_models = (
             db.query(Model)
             .join(GlobalModel, Model.global_model_id == GlobalModel.id)
+            .options(contains_eager(Model.global_model))
             .filter(
                 and_(
                     Model.provider_id.in_(all_active_provider_ids),

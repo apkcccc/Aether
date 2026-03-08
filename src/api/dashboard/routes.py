@@ -303,7 +303,7 @@ class AdminDashboardStatsAdapter(AdminApiAdapter):
         yesterday_stats = db.query(StatsDaily).filter(StatsDaily.date == yesterday).first()
         if yesterday_stats:
             requests_yesterday = yesterday_stats.total_requests
-            cost_yesterday = yesterday_stats.total_cost
+            cost_yesterday = float(yesterday_stats.total_cost or 0)
             input_tokens_yesterday = yesterday_stats.input_tokens
             output_tokens_yesterday = yesterday_stats.output_tokens
             cache_creation_yesterday = yesterday_stats.cache_creation_tokens

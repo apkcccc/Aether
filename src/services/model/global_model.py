@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import cast
 
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, load_only
 
 from src.core.exceptions import InvalidRequestException, NotFoundException
@@ -199,21 +201,15 @@ class GlobalModelService:
         """
         global_model = GlobalModelService.get_global_model(db, global_model_id)
 
-        # 查找所有关联的 Model（使用 global_model.id，预加载 provider 关联）
-        associated_models = (
-            db.query(Model)
-            .options(joinedload(Model.provider))
-            .filter(Model.global_model_id == global_model.id)
-            .all()
+        # 批量删除所有关联的 Provider 模型实现
+        assoc_count = (
+            db.query(func.count(Model.id)).filter(Model.global_model_id == global_model.id).scalar()
         )
-
-        # 级联删除所有关联的 Provider 模型实现
-        if associated_models:
+        if assoc_count:
             logger.info(
-                f"删除 GlobalModel {global_model.name} 的 {len(associated_models)} 个关联 Provider 模型"
+                f"删除 GlobalModel {global_model.name} 的 {assoc_count} 个关联 Provider 模型"
             )
-            for model in associated_models:
-                db.delete(model)
+            db.execute(sa_delete(Model).where(Model.global_model_id == global_model.id))
 
         # 删除 GlobalModel
         db.delete(global_model)

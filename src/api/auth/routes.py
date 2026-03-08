@@ -287,6 +287,7 @@ class AuthLoginAdapter(AuthPublicAdapter):
                 error_reason="邮箱或密码错误",
             )
             db.commit()
+            context.request.state.tx_committed_by_route = True
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误")
 
         AuditService.log_login_attempt(
@@ -298,6 +299,7 @@ class AuthLoginAdapter(AuthPublicAdapter):
             user_id=user.id,
         )
         db.commit()
+        context.request.state.tx_committed_by_route = True
 
         access_token = AuthService.create_access_token(
             data={
@@ -472,6 +474,7 @@ class AuthRegisterAdapter(AuthPublicAdapter):
                 metadata={"username": register_request.username, "reason": "registration_disabled"},
             )
             db.commit()
+            context.request.state.tx_committed_by_route = True
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="系统暂不开放注册")
 
         email = register_request.email
@@ -514,6 +517,7 @@ class AuthRegisterAdapter(AuthPublicAdapter):
                     metadata={"email": email, "reason": "email_suffix_not_allowed"},
                 )
                 db.commit()
+                context.request.state.tx_committed_by_route = True
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=suffix_error,
@@ -550,6 +554,7 @@ class AuthRegisterAdapter(AuthPublicAdapter):
             )
 
             db.commit()
+            context.request.state.tx_committed_by_route = True
 
             # 注册成功后清除验证状态（在 commit 后清理，即使清理失败也不影响注册结果）
             if require_verification and email:
@@ -565,6 +570,7 @@ class AuthRegisterAdapter(AuthPublicAdapter):
                 message="注册成功",
             ).model_dump()
         except ValueError as exc:
+            db.rollback()
             AuditService.log_event(
                 db=db,
                 event_type=AuditEventType.UNAUTHORIZED_ACCESS,
@@ -574,6 +580,7 @@ class AuthRegisterAdapter(AuthPublicAdapter):
                 metadata={"username": register_request.username, "error": str(exc)},
             )
             db.commit()
+            context.request.state.tx_committed_by_route = True
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
@@ -611,6 +618,7 @@ class AuthChangePasswordAdapter(AuthenticatedApiAdapter):
             raise InvalidRequestException("密码长度至少6位")
         user.set_password(new_password)
         context.db.commit()
+        context.request.state.tx_committed_by_route = True
         logger.info(f"用户修改密码: {user.email}")
         return {"message": "密码修改成功"}
 
@@ -643,6 +651,7 @@ class AuthLogoutAdapter(AuthenticatedApiAdapter):
                 metadata={"user_id": user.id, "email": user.email},
             )
             context.db.commit()
+            context.request.state.tx_committed_by_route = True
 
             logger.info(f"用户登出成功: {user.email}")
 

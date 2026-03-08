@@ -1339,10 +1339,10 @@ def query_stats_hybrid(
         result.output_tokens += stats.output_tokens
         result.cache_creation_tokens += stats.cache_creation_tokens
         result.cache_read_tokens += stats.cache_read_tokens
-        result.cache_creation_cost += stats.cache_creation_cost
-        result.cache_read_cost += stats.cache_read_cost
-        result.total_cost += stats.total_cost
-        result.actual_total_cost += stats.actual_total_cost
+        result.cache_creation_cost += float(stats.cache_creation_cost or 0)
+        result.cache_read_cost += float(stats.cache_read_cost or 0)
+        result.total_cost += float(stats.total_cost or 0)
+        result.actual_total_cost += float(stats.actual_total_cost or 0)
         result.total_response_time_ms += (stats.avg_response_time_ms or 0.0) * stats.total_requests
 
     # Realtime per day

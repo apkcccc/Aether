@@ -97,7 +97,19 @@ class CandidateBuilder:
             db.query(Provider)
             .options(
                 # 预加载 Provider 级别的 api_keys
-                selectinload(Provider.api_keys),
+                # defer 排除仅后台管理/模型获取用的冷字段，热路径字段全部加载
+                selectinload(Provider.api_keys).defer(
+                    ProviderAPIKey.note,
+                    ProviderAPIKey.last_error_msg,
+                    ProviderAPIKey.auto_fetch_models,
+                    ProviderAPIKey.locked_models,
+                    ProviderAPIKey.model_include_patterns,
+                    ProviderAPIKey.model_exclude_patterns,
+                    ProviderAPIKey.last_models_fetch_at,
+                    ProviderAPIKey.last_models_fetch_error,
+                    ProviderAPIKey.max_probe_interval_minutes,
+                    ProviderAPIKey.expires_at,
+                ),
                 # 预加载 endpoints（用于按 api_format 选择请求配置）
                 selectinload(Provider.endpoints),
                 # 同时加载 models 和 global_model 关系

@@ -338,20 +338,32 @@ class WalletService:
         return cls.get_spendable_balance_value(wallet)
 
     @classmethod
-    def _resolve_wallet_for_usage(cls, db: Session, usage: Usage) -> Wallet | None:
+    def _resolve_wallet_for_usage(
+        cls, db: Session, usage: Usage, *, for_update: bool = False
+    ) -> Wallet | None:
+        """解析 Usage 对应的钱包。for_update=True 时直接返回加锁的钱包，避免二次查询。"""
+        wallet_id = None
         if usage.wallet_id:
-            wallet = db.query(Wallet).filter(Wallet.id == usage.wallet_id).first()
-            if wallet:
-                return wallet
-        api_key = None
-        if usage.api_key_id:
-            api_key = db.query(ApiKey).filter(ApiKey.id == usage.api_key_id).first()
-            if api_key and api_key.is_standalone:
-                return cls.get_or_create_wallet(db, api_key=api_key)
-        if usage.user_id:
-            user = db.query(User).filter(User.id == usage.user_id).first()
-            return cls.get_or_create_wallet(db, user=user, api_key=api_key)
-        return None
+            wallet_id = usage.wallet_id
+        else:
+            api_key = None
+            if usage.api_key_id:
+                api_key = db.query(ApiKey).filter(ApiKey.id == usage.api_key_id).first()
+                if api_key and api_key.is_standalone:
+                    wallet = cls.get_or_create_wallet(db, api_key=api_key)
+                    wallet_id = wallet.id if wallet else None
+            if wallet_id is None and usage.user_id:
+                user = db.query(User).filter(User.id == usage.user_id).first()
+                wallet = cls.get_or_create_wallet(db, user=user, api_key=api_key)
+                wallet_id = wallet.id if wallet else None
+
+        if wallet_id is None:
+            return None
+
+        query = db.query(Wallet).filter(Wallet.id == wallet_id)
+        if for_update:
+            query = query.with_for_update()
+        return query.first()
 
     @classmethod
     def apply_usage_charge(
@@ -365,13 +377,7 @@ class WalletService:
         if amount <= Decimal("0"):
             return None, None
 
-        wallet = cls._resolve_wallet_for_usage(db, usage)
-        if wallet is None:
-            return None, None
-
-        locked_wallet = (
-            db.query(Wallet).filter(Wallet.id == wallet.id).with_for_update().one_or_none()
-        )
+        locked_wallet = cls._resolve_wallet_for_usage(db, usage, for_update=True)
         if locked_wallet is None:
             return None, None
 

@@ -197,7 +197,7 @@ class ApiKey(Base):
 
     # 使用统计
     total_requests = Column(Integer, default=0)
-    total_cost_usd = Column(Float, default=0.0)
+    total_cost_usd = Column(Numeric(20, 8), default=0.0)
 
     # 钱包体系：余额/额度由 wallets 表统一管理
     is_standalone = Column(
@@ -364,29 +364,29 @@ class Usage(Base):
     cache_creation_input_tokens_1h = Column(Integer, default=0)  # 1h TTL 缓存创建
 
     # 成本计算
-    input_cost_usd = Column(Float, default=0.0)
-    output_cost_usd = Column(Float, default=0.0)
-    cache_cost_usd = Column(Float, default=0.0)  # 总缓存成本
-    cache_creation_cost_usd = Column(Float, default=0.0)  # 缓存创建成本
-    cache_read_cost_usd = Column(Float, default=0.0)  # 缓存读取成本
-    request_cost_usd = Column(Float, default=0.0)  # 按次计费成本
-    total_cost_usd = Column(Float, default=0.0)
+    input_cost_usd = Column(Numeric(20, 8), default=0.0)
+    output_cost_usd = Column(Numeric(20, 8), default=0.0)
+    cache_cost_usd = Column(Numeric(20, 8), default=0.0)  # 总缓存成本
+    cache_creation_cost_usd = Column(Numeric(20, 8), default=0.0)  # 缓存创建成本
+    cache_read_cost_usd = Column(Numeric(20, 8), default=0.0)  # 缓存读取成本
+    request_cost_usd = Column(Numeric(20, 8), default=0.0)  # 按次计费成本
+    total_cost_usd = Column(Numeric(20, 8), default=0.0)
 
     # 真实成本计算（表面成本 × 倍率）
-    actual_input_cost_usd = Column(Float, default=0.0)  # 真实输入成本
-    actual_output_cost_usd = Column(Float, default=0.0)  # 真实输出成本
-    actual_cache_creation_cost_usd = Column(Float, default=0.0)  # 真实缓存创建成本
-    actual_cache_read_cost_usd = Column(Float, default=0.0)  # 真实缓存读取成本
-    actual_request_cost_usd = Column(Float, default=0.0)  # 真实按次计费成本
-    actual_total_cost_usd = Column(Float, default=0.0)  # 真实总成本
-    rate_multiplier = Column(Float, default=1.0)  # 使用的倍率（来自 ProviderAPIKey）
+    actual_input_cost_usd = Column(Numeric(20, 8), default=0.0)  # 真实输入成本
+    actual_output_cost_usd = Column(Numeric(20, 8), default=0.0)  # 真实输出成本
+    actual_cache_creation_cost_usd = Column(Numeric(20, 8), default=0.0)  # 真实缓存创建成本
+    actual_cache_read_cost_usd = Column(Numeric(20, 8), default=0.0)  # 真实缓存读取成本
+    actual_request_cost_usd = Column(Numeric(20, 8), default=0.0)  # 真实按次计费成本
+    actual_total_cost_usd = Column(Numeric(20, 8), default=0.0)  # 真实总成本
+    rate_multiplier = Column(Numeric(10, 6), default=1.0)  # 使用的倍率（来自 ProviderAPIKey）
 
     # 历史价格记录（每1M tokens的美元价格，记录请求时的实际价格）
-    input_price_per_1m = Column(Float, nullable=True)  # 输入单价
-    output_price_per_1m = Column(Float, nullable=True)  # 输出单价
-    cache_creation_price_per_1m = Column(Float, nullable=True)  # 缓存创建单价
-    cache_read_price_per_1m = Column(Float, nullable=True)  # 缓存读取单价
-    price_per_request = Column(Float, nullable=True)  # 按次计费单价（历史记录）
+    input_price_per_1m = Column(Numeric(20, 8), nullable=True)  # 输入单价
+    output_price_per_1m = Column(Numeric(20, 8), nullable=True)  # 输出单价
+    cache_creation_price_per_1m = Column(Numeric(20, 8), nullable=True)  # 缓存创建单价
+    cache_read_price_per_1m = Column(Numeric(20, 8), nullable=True)  # 缓存读取单价
+    price_per_request = Column(Numeric(20, 8), nullable=True)  # 按次计费单价（历史记录）
 
     # 请求详情
     request_type = Column(String(50))  # chat, completion, embedding等
@@ -960,8 +960,8 @@ class Provider(ExportMixin, Base):
     )
 
     # 月卡配置
-    monthly_quota_usd = Column(Float, nullable=True)  # 月卡总额度
-    monthly_used_usd = Column(Float, default=0.0)  # 本月已用额度
+    monthly_quota_usd = Column(Numeric(20, 8), nullable=True)  # 月卡总额度
+    monthly_used_usd = Column(Numeric(20, 8), default=0.0)  # 本月已用额度
     quota_reset_day = Column(Integer, default=30)  # 额度重置周期(天数)，例如：7=每周，30=每月
     quota_last_reset_at = Column(DateTime(timezone=True), nullable=True)  # 上次额度重置时间
     quota_expires_at = Column(DateTime(timezone=True), nullable=True)  # 月卡过期时间
@@ -1256,7 +1256,9 @@ class GlobalModel(ExportMixin, Base):
     display_name = Column(String(100), nullable=False)
 
     # 按次计费配置（每次请求的固定费用，美元）- 可选，与按 token 计费叠加
-    default_price_per_request = Column(Float, nullable=True, default=None)  # 每次请求固定费用
+    default_price_per_request = Column(
+        Numeric(20, 8), nullable=True, default=None
+    )  # 每次请求固定费用
 
     # 统一阶梯计费配置（JSON格式）- 必填
     # 固定价格也用单阶梯表示: {"tiers": [{"up_to": null, "input_price_per_1m": X, ...}]}
@@ -1364,7 +1366,7 @@ class Model(ExportMixin, Base):
     provider_model_mappings = Column(JSON, nullable=True, default=None)
 
     # 按次计费配置（每次请求的固定费用，美元）- 可为空，为空时使用 GlobalModel 的默认值
-    price_per_request = Column(Float, nullable=True)  # 每次请求固定费用
+    price_per_request = Column(Numeric(20, 8), nullable=True)  # 每次请求固定费用
 
     # 阶梯计费配置（JSON格式）- 可为空，为空时使用 GlobalModel 的默认值
     tiered_pricing = Column(JSON, nullable=True, default=None)
@@ -1908,6 +1910,8 @@ class ProviderAPIKey(ExportMixin, Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    __table_args__ = (Index("idx_provider_api_keys_provider_active", "provider_id", "is_active"),)
 
     # 关系
     provider = relationship("Provider", back_populates="api_keys")
@@ -2505,8 +2509,8 @@ class StatsHourly(Base):
     cache_read_tokens = Column(BigInteger, default=0, nullable=False)
 
     # 成本统计 (USD)
-    total_cost = Column(Float, default=0.0, nullable=False)
-    actual_total_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
+    actual_total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     # 性能统计
     avg_response_time_ms = Column(Float, default=0.0, nullable=False)
@@ -2543,7 +2547,7 @@ class StatsHourlyUser(Base):
     error_requests = Column(Integer, default=0, nullable=False)
     input_tokens = Column(BigInteger, default=0, nullable=False)
     output_tokens = Column(BigInteger, default=0, nullable=False)
-    total_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
@@ -2574,7 +2578,7 @@ class StatsHourlyModel(Base):
     total_requests = Column(Integer, default=0, nullable=False)
     input_tokens = Column(BigInteger, default=0, nullable=False)
     output_tokens = Column(BigInteger, default=0, nullable=False)
-    total_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
     avg_response_time_ms = Column(Float, default=0.0, nullable=False)
 
     created_at = Column(
@@ -2606,7 +2610,7 @@ class StatsHourlyProvider(Base):
     total_requests = Column(Integer, default=0, nullable=False)
     input_tokens = Column(BigInteger, default=0, nullable=False)
     output_tokens = Column(BigInteger, default=0, nullable=False)
-    total_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
@@ -2646,12 +2650,12 @@ class StatsDaily(Base):
     cache_read_tokens = Column(BigInteger, default=0, nullable=False)
 
     # 成本统计 (USD)
-    total_cost = Column(Float, default=0.0, nullable=False)
-    actual_total_cost = Column(Float, default=0.0, nullable=False)  # 倍率后成本
-    input_cost = Column(Float, default=0.0, nullable=False)
-    output_cost = Column(Float, default=0.0, nullable=False)
-    cache_creation_cost = Column(Float, default=0.0, nullable=False)
-    cache_read_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
+    actual_total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)  # 倍率后成本
+    input_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
+    output_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
+    cache_creation_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
+    cache_read_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     # 性能统计
     avg_response_time_ms = Column(Float, default=0.0, nullable=False)
@@ -2706,7 +2710,7 @@ class StatsDailyModel(Base):
     cache_read_tokens = Column(BigInteger, default=0, nullable=False)
 
     # 成本统计 (USD)
-    total_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     # 性能统计
     avg_response_time_ms = Column(Float, default=0.0, nullable=False)
@@ -2753,7 +2757,7 @@ class StatsDailyProvider(Base):
     cache_read_tokens = Column(BigInteger, default=0, nullable=False)
 
     # 成本统计 (USD)
-    total_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     # 时间戳
     created_at = Column(
@@ -2795,7 +2799,7 @@ class StatsDailyApiKey(Base):
     cache_creation_tokens = Column(BigInteger, default=0, nullable=False)
     cache_read_tokens = Column(BigInteger, default=0, nullable=False)
 
-    total_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
@@ -2875,8 +2879,8 @@ class StatsSummary(Base):
     all_time_cache_read_tokens = Column(BigInteger, default=0, nullable=False)
 
     # 累计成本统计 (USD)
-    all_time_cost = Column(Float, default=0.0, nullable=False)
-    all_time_actual_cost = Column(Float, default=0.0, nullable=False)
+    all_time_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
+    all_time_actual_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     # 累计用户/API Key 统计 (快照)
     total_users = Column(Integer, default=0, nullable=False)
@@ -2922,7 +2926,7 @@ class StatsUserDaily(Base):
     cache_read_tokens = Column(BigInteger, default=0, nullable=False)
 
     # 成本统计 (USD)
-    total_cost = Column(Float, default=0.0, nullable=False)
+    total_cost = Column(Numeric(20, 8), default=0.0, nullable=False)
 
     # 时间戳
     created_at = Column(

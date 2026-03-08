@@ -588,6 +588,7 @@ class AdminDeleteUserKeyAdapter(AdminApiAdapter):
         pre_clean_api_key(db, api_key.id)
         db.delete(api_key)
         db.commit()
+        context.request.state.tx_committed_by_route = True
 
         logger.info(f"管理员删除用户API Key: 用户ID {self.user_id}, Key ID {self.key_id}")
 
@@ -624,6 +625,7 @@ class AdminToggleUserKeyLockAdapter(AdminApiAdapter):
 
         api_key.is_locked = not api_key.is_locked
         db.commit()
+        context.request.state.tx_committed_by_route = True
         db.refresh(api_key)
 
         logger.info(
