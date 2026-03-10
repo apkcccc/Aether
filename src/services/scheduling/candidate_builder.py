@@ -97,8 +97,13 @@ class CandidateBuilder:
             db.query(Provider)
             .options(
                 # 预加载 Provider 级别的 api_keys
-                # defer 排除仅后台管理/模型获取用的冷字段，热路径字段全部加载
+                # defer 排除调度热路径不需要的字段，减少内存占用
+                # 凭证类字段（api_key/auth_config）在执行阶段才由 get_provider_auth() 按需加载
+                # 注意：adjustment_history/utilization_samples 在并发检查阶段
+                # (AdaptiveReservationManager) 被访问，不可 defer
                 selectinload(Provider.api_keys)
+                .defer(ProviderAPIKey.api_key)
+                .defer(ProviderAPIKey.auth_config)
                 .defer(ProviderAPIKey.note)
                 .defer(ProviderAPIKey.last_error_msg)
                 .defer(ProviderAPIKey.auto_fetch_models)
