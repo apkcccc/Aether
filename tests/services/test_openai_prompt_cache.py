@@ -30,7 +30,7 @@ def test_resolve_prompt_cache_client_family_defaults_to_generic() -> None:
     assert resolve_prompt_cache_client_family({"x-test": "1"}) == "generic"
 
 
-def test_build_stable_openai_prompt_cache_key_changes_by_client_family() -> None:
+def test_build_stable_openai_prompt_cache_key_ignores_client_family() -> None:
     python_key = build_stable_openai_prompt_cache_key(
         "user-key-123",
         client_family="openai_python",
@@ -42,7 +42,16 @@ def test_build_stable_openai_prompt_cache_key_changes_by_client_family() -> None
 
     assert python_key
     assert node_key
-    assert python_key != node_key
+    assert python_key == node_key
+
+
+def test_build_stable_prompt_cache_key_stays_scope_specific() -> None:
+    openai_key = build_stable_openai_prompt_cache_key("user-key-123")
+    codex_key = build_stable_codex_prompt_cache_key("user-key-123")
+
+    assert openai_key
+    assert codex_key
+    assert openai_key != codex_key
 
 
 def test_maybe_patch_request_with_prompt_cache_key_for_official_chat() -> None:
@@ -58,10 +67,7 @@ def test_maybe_patch_request_with_prompt_cache_key_for_official_chat() -> None:
     )
 
     assert out is not req
-    assert out["prompt_cache_key"] == build_stable_openai_prompt_cache_key(
-        "user-key-123",
-        client_family="openai_python",
-    )
+    assert out["prompt_cache_key"] == build_stable_openai_prompt_cache_key("user-key-123")
 
 
 def test_maybe_patch_request_with_prompt_cache_key_for_official_responses() -> None:
@@ -77,10 +83,7 @@ def test_maybe_patch_request_with_prompt_cache_key_for_official_responses() -> N
     )
 
     assert out is not req
-    assert out["prompt_cache_key"] == build_stable_openai_prompt_cache_key(
-        "user-key-123",
-        client_family="openai_node",
-    )
+    assert out["prompt_cache_key"] == build_stable_openai_prompt_cache_key("user-key-123")
 
 
 def test_maybe_patch_request_with_prompt_cache_key_for_codex_openai_cli() -> None:
@@ -96,10 +99,7 @@ def test_maybe_patch_request_with_prompt_cache_key_for_codex_openai_cli() -> Non
     )
 
     assert out is not req
-    assert out["prompt_cache_key"] == build_stable_codex_prompt_cache_key(
-        "user-key-123",
-        client_family="codex_desktop",
-    )
+    assert out["prompt_cache_key"] == build_stable_codex_prompt_cache_key("user-key-123")
 
 
 def test_maybe_patch_request_with_prompt_cache_key_skips_official_compact() -> None:
@@ -180,7 +180,7 @@ def test_maybe_patch_request_with_prompt_cache_key_skips_unmatched_provider() ->
     assert "prompt_cache_key" not in out
 
 
-def test_maybe_patch_request_with_prompt_cache_key_uses_generic_family_without_user_agent() -> None:
+def test_maybe_patch_request_with_prompt_cache_key_is_stable_without_user_agent() -> None:
     req = {"model": "gpt-5", "messages": [{"role": "user", "content": "hi"}]}
 
     out = maybe_patch_request_with_prompt_cache_key(
@@ -192,7 +192,28 @@ def test_maybe_patch_request_with_prompt_cache_key_uses_generic_family_without_u
     )
 
     assert out is not req
-    assert out["prompt_cache_key"] == build_stable_openai_prompt_cache_key(
-        "user-key-123",
-        client_family="generic",
+    assert out["prompt_cache_key"] == build_stable_openai_prompt_cache_key("user-key-123")
+
+
+def test_maybe_patch_request_with_prompt_cache_key_ignores_user_agent_variants() -> None:
+    req_python = {"model": "gpt-5", "input": []}
+    req_codex = {"model": "gpt-5", "input": []}
+
+    out_python = maybe_patch_request_with_prompt_cache_key(
+        req_python,
+        provider_api_format="openai:cli",
+        provider_type="custom",
+        base_url="https://api.openai.com/v1",
+        user_api_key_id="user-key-123",
+        request_headers={"user-agent": "AsyncOpenAI/Python 2.14.0"},
     )
+    out_codex = maybe_patch_request_with_prompt_cache_key(
+        req_codex,
+        provider_api_format="openai:cli",
+        provider_type="custom",
+        base_url="https://api.openai.com/v1",
+        user_api_key_id="user-key-123",
+        request_headers={"user-agent": "Codex Desktop/0.108.0-alpha.12"},
+    )
+
+    assert out_python["prompt_cache_key"] == out_codex["prompt_cache_key"]

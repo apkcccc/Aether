@@ -11,6 +11,7 @@ from src.core.provider_types import ProviderType, normalize_provider_type
 from src.utils.url_utils import is_official_openai_api_url
 
 _OFFICIAL_OPENAI_PROMPT_CACHE_FORMATS: frozenset[str] = frozenset({"openai:chat", "openai:cli"})
+_PROMPT_CACHE_NAMESPACE_VERSION = "v3"
 _USER_AGENT_CLIENT_FAMILY_PATTERNS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("codex desktop",), "codex_desktop"),
     (("asyncopenai/python", "openai/python"), "openai_python"),
@@ -69,8 +70,10 @@ def _build_stable_prompt_cache_key(
     if not normalized:
         return None
 
-    family = str(client_family or "").strip().lower() or "generic"
-    namespace = f"aether:{scope}:prompt-cache:v2:user:{normalized}:client:{family}"
+    # Keep the optional argument for call-site compatibility, but ignore it.
+    # Prompt cache reuse is more valuable than splitting namespaces by User-Agent.
+    _ = client_family
+    namespace = f"aether:{scope}:prompt-cache:{_PROMPT_CACHE_NAMESPACE_VERSION}:user:{normalized}"
     return str(uuid.uuid5(uuid.NAMESPACE_OID, namespace))
 
 
@@ -154,16 +157,13 @@ def maybe_patch_request_with_prompt_cache_key(
     if prompt_cache_key:
         return request_body
 
-    client_family = resolve_prompt_cache_client_family(request_headers)
     if scope == "codex":
         stable_key = build_stable_codex_prompt_cache_key(
             user_api_key_id,
-            client_family=client_family,
         )
     else:
         stable_key = build_stable_openai_prompt_cache_key(
             user_api_key_id,
-            client_family=client_family,
         )
     if not stable_key:
         return request_body
