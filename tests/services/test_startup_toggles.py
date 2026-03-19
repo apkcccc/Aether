@@ -56,19 +56,8 @@ async def test_maintenance_scheduler_stop_cancels_startup_task_and_removes_jobs(
     scheduler = MaintenanceScheduler()
     scheduler.running = True
     scheduler._startup_task = asyncio.create_task(asyncio.sleep(3600))
-    removed_jobs: list[str] = []
 
-    monkeypatch.setattr(
-        maintenance_scheduler_module,
-        "get_scheduler",
-        lambda: SimpleNamespace(remove_job=lambda job_id: removed_jobs.append(job_id)),
-    )
-
-    await scheduler.stop()
-
-    assert scheduler.running is False
-    assert scheduler._startup_task is None
-    assert set(removed_jobs) == {
+    expected_job_ids = [
         "stats_aggregation",
         "stats_hourly_aggregation",
         "wallet_daily_usage_aggregation",
@@ -82,7 +71,22 @@ async def test_maintenance_scheduler_stop_cancels_startup_task_and_removes_jobs(
         "db_maintenance",
         "antigravity_ua_refresh",
         scheduler.CHECKIN_JOB_ID,
-    }
+    ]
+    scheduler._registered_job_ids = list(expected_job_ids)
+    removed_jobs: list[str] = []
+
+    monkeypatch.setattr(
+        maintenance_scheduler_module,
+        "get_scheduler",
+        lambda: SimpleNamespace(remove_job=lambda job_id: removed_jobs.append(job_id)),
+    )
+
+    await scheduler.stop()
+
+    assert scheduler.running is False
+    assert scheduler._startup_task is None
+    assert set(removed_jobs) == set(expected_job_ids)
+    assert scheduler._registered_job_ids == []
 
 
 @pytest.mark.asyncio

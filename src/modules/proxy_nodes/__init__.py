@@ -109,10 +109,11 @@ async def _on_startup() -> None:
     if active:
         logger.info("启动 ProxyNode 心跳检测调度器...")
         await proxy_node_health_scheduler.start()
-        task_coordinator.register_lock_lost_callback(
-            "proxy_node_health",
-            lambda _name: _stop_proxy_node_scheduler_on_lock_lost(logger),
-        )
+
+        async def _on_lock_lost(_name: str) -> None:
+            await _stop_proxy_node_scheduler_on_lock_lost(logger)
+
+        task_coordinator.register_lock_lost_callback("proxy_node_health", _on_lock_lost)
 
 
 async def _on_shutdown() -> None:

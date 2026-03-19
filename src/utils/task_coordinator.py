@@ -181,6 +181,8 @@ class StartupTaskCoordinator:
 
     async def _refresh_lock_loop(self, name: str, ttl: int) -> None:
         interval = max(1, ttl // 3)
+        max_consecutive_failures = 5
+        consecutive_failures = 0
         try:
             while name in self._tokens:
                 await asyncio.sleep(interval)
@@ -190,10 +192,24 @@ class StartupTaskCoordinator:
                     refreshed = await self._refresh_lock(name, ttl)
                 except asyncio.CancelledError:
                     raise
-                except Exception as exc:  # pragma: no cover - 续租失败后下轮重试
-                    logger.warning(f"续租任务锁 {name} 失败: {exc}")
+                except Exception as exc:
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_consecutive_failures:
+                        logger.error(
+                            f"续租任务锁 {name} 连续失败 {consecutive_failures} 次，视为锁丢失: {exc}"
+                        )
+                        self._tokens.pop(name, None)
+                        await self._notify_lock_lost(name)
+                        break
+                    backoff = min(interval, 2**consecutive_failures)
+                    logger.warning(
+                        f"续租任务锁 {name} 失败 ({consecutive_failures}/{max_consecutive_failures})，"
+                        f"{backoff}s 后重试: {exc}"
+                    )
+                    await asyncio.sleep(backoff)
                     continue
 
+                consecutive_failures = 0
                 if not refreshed:
                     logger.warning(f"任务 {name} 的 Redis 锁已失效，停止续租")
                     self._tokens.pop(name, None)
